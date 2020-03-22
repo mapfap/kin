@@ -1,0 +1,16 @@
+{
+  "name": "kin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "buffered-spawn": "^3.3.2",
+    "express": "^4.17.1",
+    "helmet": "^3.21.3",
+    "morgan": "^1.10.0",
+    "winston": "^3.2.1"
+  }
+}
