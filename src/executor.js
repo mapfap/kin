@@ -1,56 +1,62 @@
 
 const fs = require('fs')
 const path = require('path')
-const bufferedSpawn = require('buffered-spawn')
 const logger = require('./logger')
+const child_process = require('child_process')
+
+
+const execSync = (dir, command) => {
+ return new Promise((resolve, reject) => {
+ 	executorName = `[executor] ${dir} [[ $ ${command} ]]`
+ 	logger.info(executorName)
+  child_process.exec(command, { cwd: dir }, (error, stdout, stderr) => {
+  	logger.debug(`${executorName}\n>> ${stdout.replace(/\n$/g, '').replace(/\n/g, '\n>> ')}`)
+		if (error || stderr) {
+			logger.warn(`${executorName}\n** ${stderr.replace(/\n$/g, '').replace(/\n/g, '\n**')}`)
+			reject(error)
+		}
+		resolve(stdout)
+  })
+ })
+}
 
 const prepareWorkspace = async (projectName, ssh) => {
-	const workspacePath = path.resolve('workspace')
-	if (!fs.existsSync(workspacePath)){
-    fs.mkdirSync(workspacePath, { mode: '770' })
+	const dir = path.resolve('workspace')
+	if (!fs.existsSync(dir)){
+    fs.mkdirSync(dir, { mode: '770' })
 	}
 
 	const projectFolderName = projectName.replace(/\//g, '_')
-	const sourcePath = path.resolve(workspacePath, projectFolderName)
-	logger.info(`[executor] sourcePath: ${sourcePath}`)
-	if (fs.existsSync(sourcePath)) {
-		return await exec(sourcePath, 'git pull') ? sourcePath : false
+	const sourceDir = path.resolve(dir, projectFolderName)
+	if (fs.existsSync(sourceDir)) {
+		await execSync(sourceDir, 'git pull')
 	} else {
-		return await exec(workspacePath, `git clone ${ssh} ${projectFolderName}`) ? sourcePath : false
+		await execSync(dir, `git clone ${ssh} ${projectFolderName}`)
 	}
+
+	await execSync(sourceDir, 'chmod +x deploy.sh && ls -l deploy.sh')
+
+	return sourceDir
 }
 
-const exec = async (path, command) => {
-	const args = command.split(' ')
-	try {
-		const output = await bufferedSpawn(args[0], args.slice(1), { cwd: path })
-	  logSpawnOutput(command, output)
-	  return output.stderr.length == 0
-	} catch (output) {
-		logSpawnOutput(command, output)
-		return false
-	}
-}
-
+// TODO: Test if this IO-bounded?
+// TODO: Properly arrange the log
+// TODO: Ensure git pull errors are handled
+// TODO: (Feature) accept branching
 const deploy = async (projectName, ssh) => {
-	// TODO: Design better code flow
-	const path = await prepareWorkspace(projectName, ssh)
-	if (path) {
-		if (await exec(path, 'chmod +x deploy.sh')) {
-			if (await exec(path, './deploy.sh')) {
-				logger.info('[executor] deployment succeeded')
-			}
-		}
+	try {
+		const dir = await prepareWorkspace(projectName, ssh)
+		await execSync(dir, './deploy.sh')
+		logger.info('[executor] deployment succeeded')
+	} catch (err) {
+		logger.error(err)
 	}
 }
 
-const logSpawnOutput = (command, output) => {
-	logger.info(`[executor] [[ $ ${command} ]]`)
-	if (output.stdout) logger.info('\n>> ' + output.stdout.replace(/\n$/g, '').replace(/\n/g, '\n>> '))
-  if (output.stderr) logger.error('\n** ' + output.stderr.replace(/\n$/g, '').replace(/\n/g, '\n**'))
-}
-
-// deploy("mapfap/hook", "git")
-// exec('/Users/mapfap/dev/kin/workspace/mapfap_hook', './deploy.sh')
+deploy('mapfap/hook', 'git')
+.then()
+.catch(err => {
+	throw err
+})
 
 module.exports = { deploy }

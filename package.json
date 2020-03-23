@@ -7,7 +7,6 @@
   },
   "dependencies": {
     "body-parser": "^1.19.0",
-    "buffered-spawn": "^3.3.2",
     "express": "^4.17.1",
     "helmet": "^3.21.3",
     "morgan": "^1.10.0",

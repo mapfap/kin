@@ -1,8 +1,10 @@
-const winston = require('winston');
+const winston = require('winston')
+const colorizer = winston.format.colorize()
 
 const errorFormatter = winston.format(info => {
     if (info instanceof Error) {
-      info.message = '\tRef:' + info.ref + '\n\t' + info.stack.replace(/\n/g, '\n\t')
+      const ref = info.ref ? `\tRef: ${info.ref} \n\t` : ''
+      info.message = `${ref}${info.stack.replace(/\n/g, '\n\t')}`
       delete info.ref
     }
     return info
@@ -10,7 +12,14 @@ const errorFormatter = winston.format(info => {
 
 const logger = winston.createLogger({
     level: 'debug',
-    format: winston.format.combine(errorFormatter(), winston.format.simple()) , // can be json
+    format: winston.format.combine(
+    // winston.format.colorize()
+    errorFormatter(),
+    // winston.format.simple(),
+    winston.format.printf(msg => 
+      colorizer.colorize(msg.level, `${msg.level}: ${msg.message}`)
+    )
+    ) , // can be json
     transports: [
         new winston.transports.File({
             level: 'error',
@@ -34,6 +43,6 @@ const logger = winston.createLogger({
 module.exports = logger;
 module.exports.morganStream = {
     write: function(message, encoding){
-        logger.info(`[express] ${message.trim()}`);
+        logger.info(`[express] ${message.trim()}`)
     }
 };
